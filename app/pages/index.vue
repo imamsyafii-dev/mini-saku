@@ -1,15 +1,5 @@
 <script setup lang="ts">
-type TransactionType = 'income' | 'expense'
-type TransactionFilter = 'all' | TransactionType
-
-interface Transaction {
-  id: string
-  type: TransactionType
-  description: string
-  amount: number
-  category: string
-  date: string
-}
+import type { Transaction, TransactionFilter, TransactionType } from '~/types/transaction'
 
 const TRANSACTIONS_STORAGE_KEY = 'mini-saku-transactions'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
