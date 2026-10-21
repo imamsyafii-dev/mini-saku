@@ -1,3 +1,19 @@
+<script setup lang="ts">
+const transactionType = ref<'income' | 'expense'>('expense')
+const description = ref('')
+const amount = ref<number | null>(null)
+const category = ref('Makan')
+const transactionDate = ref(new Date().toISOString().slice(0, 10))
+
+const formattedAmount = computed(() => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(amount.value ?? 0)
+})
+</script>
+
 <template>
   <main class="landing-page">
     <section class="hero" aria-labelledby="page-title">
@@ -16,6 +32,48 @@
       </div>
       <p class="balance">Rp0</p>
       <p class="balance-note">Belum ada transaksi hari ini</p>
+    </section>
+
+    <section class="transaction-form" aria-labelledby="form-title">
+      <div>
+        <p class="eyebrow">TRANSAKSI BARU</p>
+        <h2 id="form-title">Isi transaksi pertama</h2>
+      </div>
+
+      <form @submit.prevent>
+        <label>
+          Jenis transaksi
+          <select v-model="transactionType">
+            <option value="expense">Pengeluaran</option>
+            <option value="income">Pemasukan</option>
+          </select>
+        </label>
+
+        <label>
+          Keterangan
+          <input v-model="description" type="text" placeholder="Contoh: Makan siang" />
+        </label>
+
+        <label>
+          Nominal
+          <input v-model.number="amount" type="number" min="0" placeholder="25000" />
+        </label>
+
+        <label>
+          Kategori
+          <input v-model="category" type="text" />
+        </label>
+
+        <label>
+          Tanggal
+          <input v-model="transactionDate" type="date" />
+        </label>
+      </form>
+
+      <p class="draft-preview">
+        Draft: {{ transactionType === 'income' ? 'Pemasukan' : 'Pengeluaran' }}
+        {{ description || 'tanpa keterangan' }} sebesar {{ formattedAmount }}.
+      </p>
     </section>
 
     <p class="encouragement">Yuk, mulai catat pemasukan dan pengeluaranmu.</p>
@@ -130,5 +188,50 @@ h1 {
   .balance-card {
     padding: 2rem;
   }
+}
+
+.transaction-form {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid #dce4d8;
+  border-radius: 1.5rem;
+  background: #fffdf8;
+}
+
+h2 {
+  margin: 0.25rem 0 0;
+  font-size: 1.35rem;
+}
+
+form {
+  display: grid;
+  gap: 1rem;
+}
+
+label {
+  display: grid;
+  gap: 0.45rem;
+  color: #334139;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #cbd7c6;
+  border-radius: 0.75rem;
+  background: white;
+  color: #1d2a22;
+  font: inherit;
+}
+
+.draft-preview {
+  margin: 0;
+  color: #5b685f;
+  line-height: 1.6;
 }
 </style>
