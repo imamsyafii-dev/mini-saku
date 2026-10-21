@@ -18,6 +18,23 @@ const transactionDate = ref(new Date().toISOString().slice(0, 10))
 
 const transactions = ref<Transaction[]>([])
 const formError = ref('')
+const deletionStatus = ref('')
+const descriptionInput = ref<HTMLInputElement | null>(null)
+
+function removeTransaction(id: string) {
+  const transaction = transactions.value.find((item) => item.id === id)
+
+  if (!transaction || !window.confirm(`Hapus transaksi "${transaction.description}"?`)) {
+    return
+  }
+
+  transactions.value = transactions.value.filter(
+    (transaction) => transaction.id !== id,
+  )
+  deletionStatus.value = `Transaksi ${transaction.description} berhasil dihapus. ${transactions.value.length} transaksi tersisa.`
+
+  nextTick(() => descriptionInput.value?.focus())
+}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('id-ID', {
@@ -133,7 +150,7 @@ function addTransaction() {
 
         <label>
           Keterangan
-          <input v-model="description" type="text" placeholder="Contoh: Makan siang" />
+          <input ref="descriptionInput" v-model="description" type="text" placeholder="Contoh: Makan siang" />
         </label>
 
         <label>
@@ -167,6 +184,7 @@ function addTransaction() {
     </section>
 
     <section class="transaction-history" aria-labelledby="history-title">
+      <p class="sr-only" role="status" aria-live="polite">{{ deletionStatus }}</p>
       <div class="section-heading">
         <div>
           <p class="eyebrow">RIWAYAT</p>
@@ -191,9 +209,19 @@ function addTransaction() {
             <strong>{{ transaction.description }}</strong>
             <span>{{ transaction.category }} · {{ formatDate(transaction.date) }}</span>
           </div>
-          <strong class="transaction-amount" :class="transaction.type">
-            {{ transaction.type === 'income' ? '+' : '−' }}{{ formatCurrency(transaction.amount) }}
-          </strong>
+          <div class="transaction-actions">
+            <strong class="transaction-amount" :class="transaction.type">
+              {{ transaction.type === 'income' ? '+' : '−' }}{{ formatCurrency(transaction.amount) }}
+            </strong>
+            <button
+              type="button"
+              class="delete-transaction"
+              :aria-label="`Hapus transaksi ${transaction.description}`"
+              @click="removeTransaction(transaction.id)"
+            >
+              Hapus
+            </button>
+          </div>
         </li>
       </ul>
     </section>
@@ -213,6 +241,17 @@ function addTransaction() {
   background: #f7f7f2;
   color: #1d2a22;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .landing-page {
@@ -517,6 +556,26 @@ button:hover {
   font-size: 0.9rem;
 }
 
+.transaction-actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.45rem;
+}
+
+.delete-transaction {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid #e1b6ae;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #a33f35;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.delete-transaction:hover {
+  background: #f8e7e3;
+}
+
 .transaction-amount.income {
   color: #28704c;
 }
@@ -538,8 +597,9 @@ button:hover {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .transaction-amount {
+  .transaction-actions {
     grid-column: 2;
+    justify-items: start;
   }
 }
 </style>
