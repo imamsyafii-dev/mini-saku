@@ -10,6 +10,9 @@ interface Transaction {
   date: string
 }
 
+const TRANSACTIONS_STORAGE_KEY = 'mini-saku-transactions'
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
 const transactionType = ref<TransactionType>('expense')
 const description = ref('')
 const amount = ref<number | null>(null)
@@ -17,9 +20,100 @@ const category = ref('Makan')
 const transactionDate = ref(new Date().toISOString().slice(0, 10))
 
 const transactions = ref<Transaction[]>([])
+const hasLoadedTransactions = ref(false)
 const formError = ref('')
 const deletionStatus = ref('')
 const descriptionInput = ref<HTMLInputElement | null>(null)
+
+function isValidTransactionDate(value: string) {
+  if (!DATE_PATTERN.test(value)) {
+    return false
+  }
+
+  const parsedDate = new Date(`${value}T00:00:00Z`)
+
+  return !Number.isNaN(parsedDate.getTime())
+    && parsedDate.toISOString().slice(0, 10) === value
+}
+
+function isTransaction(value: unknown): value is Transaction {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const transaction = value as Record<string, unknown>
+
+  return typeof transaction.id === 'string'
+    && transaction.id.trim().length > 0
+    && (transaction.type === 'income' || transaction.type === 'expense')
+    && typeof transaction.description === 'string'
+    && transaction.description.trim().length > 0
+    && typeof transaction.amount === 'number'
+    && Number.isFinite(transaction.amount)
+    && transaction.amount > 0
+    && typeof transaction.category === 'string'
+    && transaction.category.trim().length > 0
+    && typeof transaction.date === 'string'
+    && isValidTransactionDate(transaction.date)
+}
+
+onMounted(() => {
+  let shouldRemoveStoredTransactions = false
+  let shouldSanitizeStoredTransactions = false
+
+  try {
+    const storedTransactions = window.localStorage.getItem(TRANSACTIONS_STORAGE_KEY)
+
+    if (storedTransactions !== null) {
+      const parsedTransactions: unknown = JSON.parse(storedTransactions)
+
+      if (Array.isArray(parsedTransactions)) {
+        const validTransactions = parsedTransactions.filter(isTransaction)
+
+        transactions.value = validTransactions
+        shouldSanitizeStoredTransactions = validTransactions.length !== parsedTransactions.length
+      } else {
+        shouldRemoveStoredTransactions = true
+      }
+    }
+  } catch {
+    shouldRemoveStoredTransactions = true
+  } finally {
+    hasLoadedTransactions.value = true
+
+    try {
+      if (shouldRemoveStoredTransactions) {
+        window.localStorage.removeItem(TRANSACTIONS_STORAGE_KEY)
+      } else if (shouldSanitizeStoredTransactions) {
+        window.localStorage.setItem(
+          TRANSACTIONS_STORAGE_KEY,
+          JSON.stringify(transactions.value),
+        )
+      }
+    } catch {
+      // Keep the in-memory transactions usable when storage is unavailable.
+    }
+  }
+})
+
+watch(
+  transactions,
+  (updatedTransactions) => {
+    if (!hasLoadedTransactions.value) {
+      return
+    }
+
+    try {
+      window.localStorage.setItem(
+        TRANSACTIONS_STORAGE_KEY,
+        JSON.stringify(updatedTransactions),
+      )
+    } catch {
+      // Keep the in-memory transactions usable when storage is unavailable.
+    }
+  },
+  { deep: true },
+)
 
 function removeTransaction(id: string) {
   const transaction = transactions.value.find((item) => item.id === id)
