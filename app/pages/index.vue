@@ -1,9 +1,23 @@
 <script setup lang="ts">
-const transactionType = ref<'income' | 'expense'>('expense')
+type TransactionType = 'income' | 'expense'
+
+interface Transaction {
+  id: string
+  type: TransactionType
+  description: string
+  amount: number
+  category: string
+  date: string
+}
+
+const transactionType = ref<TransactionType>('expense')
 const description = ref('')
 const amount = ref<number | null>(null)
 const category = ref('Makan')
 const transactionDate = ref(new Date().toISOString().slice(0, 10))
+
+const transactions = ref<Transaction[]>([])
+const formError = ref('')
 
 const formattedAmount = computed(() => {
   return new Intl.NumberFormat('id-ID', {
@@ -12,6 +26,35 @@ const formattedAmount = computed(() => {
     maximumFractionDigits: 0,
   }).format(amount.value ?? 0)
 })
+
+function addTransaction() {
+  const cleanDescription = description.value.trim()
+  const transactionAmount = amount.value
+
+  formError.value = ''
+
+  if (!cleanDescription) {
+    formError.value = 'Keterangan transaksi wajib diisi.'
+    return
+  }
+
+  if (!transactionAmount || transactionAmount <= 0) {
+    formError.value = 'Nominal harus lebih dari Rp0.'
+    return
+  }
+
+  transactions.value.unshift({
+    id: crypto.randomUUID(),
+    type: transactionType.value,
+    description: cleanDescription,
+    amount: transactionAmount,
+    category: category.value.trim() || 'Lainnya',
+    date: transactionDate.value,
+  })
+
+  description.value = ''
+  amount.value = null
+}
 </script>
 
 <template>
@@ -40,7 +83,7 @@ const formattedAmount = computed(() => {
         <h2 id="form-title">Isi transaksi pertama</h2>
       </div>
 
-      <form @submit.prevent>
+      <form @submit.prevent="addTransaction">
         <label>
           Jenis transaksi
           <select v-model="transactionType">
@@ -68,11 +111,19 @@ const formattedAmount = computed(() => {
           Tanggal
           <input v-model="transactionDate" type="date" />
         </label>
+        <button type="submit">Tambah transaksi</button>
+
+        <p v-if="formError" class="form-error" role="alert">
+          {{ formError }}
+        </p>
       </form>
 
       <p class="draft-preview">
         Draft: {{ transactionType === 'income' ? 'Pemasukan' : 'Pengeluaran' }}
         {{ description || 'tanpa keterangan' }} sebesar {{ formattedAmount }}.
+      </p>
+      <p v-if="transactions.length" class="success-message">
+        {{ transactions.length }} transaksi berhasil tersimpan sementara.
       </p>
     </section>
 
@@ -233,5 +284,33 @@ select {
   margin: 0;
   color: #5b685f;
   line-height: 1.6;
+}
+
+button {
+  padding: 0.9rem 1rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #24563d;
+  color: #fffdf5;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+button:hover {
+  background: #1b432f;
+}
+
+.form-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.9rem;
+}
+
+.success-message {
+  margin: 0;
+  color: #2d6a46;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 </style>
