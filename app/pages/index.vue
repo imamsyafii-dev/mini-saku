@@ -1,5 +1,6 @@
 <script setup lang="ts">
 type TransactionType = 'income' | 'expense'
+type TransactionFilter = 'all' | TransactionType
 
 interface Transaction {
   id: string
@@ -18,6 +19,7 @@ const description = ref('')
 const amount = ref<number | null>(null)
 const category = ref('Makan')
 const transactionDate = ref(new Date().toISOString().slice(0, 10))
+const activeTransactionFilter = ref<TransactionFilter>('all')
 
 const transactions = ref<Transaction[]>([])
 const hasLoadedTransactions = ref(false)
@@ -156,6 +158,16 @@ const totalExpense = computed(() => {
 
 const balance = computed(() => totalIncome.value - totalExpense.value)
 
+const filteredTransactions = computed(() => {
+  if (activeTransactionFilter.value === 'all') {
+    return transactions.value
+  }
+
+  return transactions.value.filter(
+    (transaction) => transaction.type === activeTransactionFilter.value,
+  )
+})
+
 function formatDate(date: string) {
   return new Intl.DateTimeFormat('id-ID', {
     day: 'numeric',
@@ -287,11 +299,44 @@ function addTransaction() {
         <span v-if="transactions.length" class="transaction-count">{{ transactions.length }}</span>
       </div>
 
+      <div class="transaction-filters" aria-label="Filter riwayat transaksi">
+        <button
+          type="button"
+          class="filter-button"
+          :class="{ active: activeTransactionFilter === 'all' }"
+          :aria-pressed="activeTransactionFilter === 'all'"
+          @click="activeTransactionFilter = 'all'"
+        >
+          Semua
+        </button>
+        <button
+          type="button"
+          class="filter-button"
+          :class="{ active: activeTransactionFilter === 'income' }"
+          :aria-pressed="activeTransactionFilter === 'income'"
+          @click="activeTransactionFilter = 'income'"
+        >
+          Pemasukan
+        </button>
+        <button
+          type="button"
+          class="filter-button"
+          :class="{ active: activeTransactionFilter === 'expense' }"
+          :aria-pressed="activeTransactionFilter === 'expense'"
+          @click="activeTransactionFilter = 'expense'"
+        >
+          Pengeluaran
+        </button>
+      </div>
+
       <p v-if="!transactions.length" class="empty-state">
         Belum ada transaksi. Catat transaksi pertamamu di atas.
       </p>
+      <p v-else-if="!filteredTransactions.length" class="empty-state">
+        Belum ada transaksi {{ activeTransactionFilter === 'income' ? 'pemasukan' : 'pengeluaran' }}.
+      </p>
       <ul v-else class="history-list">
-        <li v-for="transaction in transactions" :key="transaction.id" class="history-item">
+        <li v-for="transaction in filteredTransactions" :key="transaction.id" class="history-item">
           <span
             class="transaction-icon"
             :class="transaction.type"
@@ -576,6 +621,34 @@ button:hover {
   font-weight: 800;
 }
 
+.transaction-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.filter-button {
+  flex: 1 1 auto;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd7c6;
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #526058;
+  font-size: 0.82rem;
+}
+
+.filter-button:hover {
+  background: #e5eee2;
+}
+
+.filter-button.active,
+.filter-button.active:hover {
+  border-color: #24563d;
+  background: #24563d;
+  color: #fffdf5;
+}
+
 .empty-state {
   margin: 1rem 0 0;
   padding: 1.25rem;
@@ -685,6 +758,17 @@ button:hover {
 
   .summary-item {
     padding: 0.85rem;
+  }
+
+  .transaction-filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filter-button {
+    min-width: 0;
+    padding: 0.6rem 0.4rem;
+    font-size: 0.75rem;
   }
 
   .history-item {
