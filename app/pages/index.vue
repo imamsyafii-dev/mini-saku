@@ -1,21 +1,15 @@
 <script setup lang="ts">
-import type { Transaction, TransactionFilter, TransactionType } from '~/types/transaction'
+import type { Transaction, TransactionDraft, TransactionFilter } from '~/types/transaction'
 
 const TRANSACTIONS_STORAGE_KEY = 'mini-saku-transactions'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
-const transactionType = ref<TransactionType>('expense')
-const description = ref('')
-const amount = ref<number | null>(null)
-const category = ref('Makan')
-const transactionDate = ref(new Date().toISOString().slice(0, 10))
 const activeTransactionFilter = ref<TransactionFilter>('all')
 
 const transactions = ref<Transaction[]>([])
 const hasLoadedTransactions = ref(false)
-const formError = ref('')
 const deletionStatus = ref('')
-const descriptionInput = ref<HTMLInputElement | null>(null)
+const transactionForm = ref<{ focusDescription: () => void } | null>(null)
 
 function isValidTransactionDate(value: string) {
   if (!DATE_PATTERN.test(value)) {
@@ -119,7 +113,7 @@ function removeTransaction(id: string) {
   )
   deletionStatus.value = `Transaksi ${transaction.description} berhasil dihapus. ${transactions.value.length} transaksi tersisa.`
 
-  nextTick(() => descriptionInput.value?.focus())
+  nextTick(() => transactionForm.value?.focusDescription())
 }
 
 function formatCurrency(value: number) {
@@ -129,10 +123,6 @@ function formatCurrency(value: number) {
     maximumFractionDigits: 0,
   }).format(value)
 }
-
-const formattedAmount = computed(() => {
-  return formatCurrency(amount.value ?? 0)
-})
 
 const totalIncome = computed(() => {
   return transactions.value
@@ -166,33 +156,11 @@ function formatDate(date: string) {
   }).format(new Date(`${date}T00:00:00`))
 }
 
-function addTransaction() {
-  const cleanDescription = description.value.trim()
-  const transactionAmount = amount.value
-
-  formError.value = ''
-
-  if (!cleanDescription) {
-    formError.value = 'Keterangan transaksi wajib diisi.'
-    return
-  }
-
-  if (!transactionAmount || transactionAmount <= 0) {
-    formError.value = 'Nominal harus lebih dari Rp0.'
-    return
-  }
-
+function addTransaction(draft: TransactionDraft) {
   transactions.value.unshift({
     id: crypto.randomUUID(),
-    type: transactionType.value,
-    description: cleanDescription,
-    amount: transactionAmount,
-    category: category.value.trim() || 'Lainnya',
-    date: transactionDate.value,
+    ...draft,
   })
-
-  description.value = ''
-  amount.value = null
 }
 </script>
 
@@ -214,55 +182,11 @@ function addTransaction() {
       :transaction-count="transactions.length"
     />
 
-    <section class="transaction-form" aria-labelledby="form-title">
-      <div>
-        <p class="eyebrow">TRANSAKSI BARU</p>
-        <h2 id="form-title">Isi transaksi pertama</h2>
-      </div>
-
-      <form @submit.prevent="addTransaction">
-        <label>
-          Jenis transaksi
-          <select v-model="transactionType">
-            <option value="expense">Pengeluaran</option>
-            <option value="income">Pemasukan</option>
-          </select>
-        </label>
-
-        <label>
-          Keterangan
-          <input ref="descriptionInput" v-model="description" type="text" placeholder="Contoh: Makan siang" />
-        </label>
-
-        <label>
-          Nominal
-          <input v-model.number="amount" type="number" min="0" placeholder="25000" />
-        </label>
-
-        <label>
-          Kategori
-          <input v-model="category" type="text" />
-        </label>
-
-        <label>
-          Tanggal
-          <input v-model="transactionDate" type="date" />
-        </label>
-        <button type="submit">Tambah transaksi</button>
-
-        <p v-if="formError" class="form-error" role="alert">
-          {{ formError }}
-        </p>
-      </form>
-
-      <p class="draft-preview">
-        Draft: {{ transactionType === 'income' ? 'Pemasukan' : 'Pengeluaran' }}
-        {{ description || 'tanpa keterangan' }} sebesar {{ formattedAmount }}.
-      </p>
-      <p v-if="transactions.length" class="success-message">
-        {{ transactions.length }} transaksi berhasil tersimpan sementara.
-      </p>
-    </section>
+    <TransactionForm
+      ref="transactionForm"
+      :transaction-count="transactions.length"
+      @submit="addTransaction"
+    />
 
     <section class="transaction-history" aria-labelledby="history-title">
       <p class="sr-only" role="status" aria-live="polite">{{ deletionStatus }}</p>
@@ -418,77 +342,9 @@ h1 {
 
 }
 
-.transaction-form {
-  display: grid;
-  gap: 1.25rem;
-  margin-top: 2rem;
-  padding: 1.5rem;
-  border: 1px solid #dce4d8;
-  border-radius: 1.5rem;
-  background: #fffdf8;
-}
-
 h2 {
   margin: 0.25rem 0 0;
   font-size: 1.35rem;
-}
-
-form {
-  display: grid;
-  gap: 1rem;
-}
-
-label {
-  display: grid;
-  gap: 0.45rem;
-  color: #334139;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-input,
-select {
-  width: 100%;
-  padding: 0.8rem 0.9rem;
-  border: 1px solid #cbd7c6;
-  border-radius: 0.75rem;
-  background: white;
-  color: #1d2a22;
-  font: inherit;
-}
-
-.draft-preview {
-  margin: 0;
-  color: #5b685f;
-  line-height: 1.6;
-}
-
-button {
-  padding: 0.9rem 1rem;
-  border: 0;
-  border-radius: 0.75rem;
-  background: #24563d;
-  color: #fffdf5;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 800;
-}
-
-button:hover {
-  background: #1b432f;
-}
-
-.form-error {
-  margin: 0;
-  color: #b42318;
-  font-size: 0.9rem;
-}
-
-.success-message {
-  margin: 0;
-  color: #2d6a46;
-  font-size: 0.9rem;
-  font-weight: 700;
 }
 
 .transaction-history {

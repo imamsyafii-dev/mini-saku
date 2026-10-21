@@ -10,3 +10,11 @@ export interface Transaction {
   category: string
   date: string
 }
+
+export interface TransactionDraft {
+  type: TransactionType
+  description: string
+  amount: number
+  category: string
+  date: string
+}
