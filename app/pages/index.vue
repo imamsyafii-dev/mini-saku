@@ -19,13 +19,39 @@ const transactionDate = ref(new Date().toISOString().slice(0, 10))
 const transactions = ref<Transaction[]>([])
 const formError = ref('')
 
-const formattedAmount = computed(() => {
+function formatCurrency(value: number) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(amount.value ?? 0)
+  }).format(value)
+}
+
+const formattedAmount = computed(() => {
+  return formatCurrency(amount.value ?? 0)
 })
+
+const totalIncome = computed(() => {
+  return transactions.value
+    .filter((transaction) => transaction.type === 'income')
+    .reduce((total, transaction) => total + transaction.amount, 0)
+})
+
+const totalExpense = computed(() => {
+  return transactions.value
+    .filter((transaction) => transaction.type === 'expense')
+    .reduce((total, transaction) => total + transaction.amount, 0)
+})
+
+const balance = computed(() => totalIncome.value - totalExpense.value)
+
+function formatDate(date: string) {
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(`${date}T00:00:00`))
+}
 
 function addTransaction() {
   const cleanDescription = description.value.trim()
@@ -73,8 +99,21 @@ function addTransaction() {
         <span>Saldo tersedia</span>
         <span class="wallet-icon" aria-hidden="true">⌁</span>
       </div>
-      <p class="balance">Rp0</p>
-      <p class="balance-note">Belum ada transaksi hari ini</p>
+      <p class="balance">{{ formatCurrency(balance) }}</p>
+      <p class="balance-note">
+        {{ transactions.length ? `${transactions.length} transaksi tercatat` : 'Belum ada transaksi hari ini' }}
+      </p>
+    </section>
+
+    <section class="summary" aria-label="Ringkasan pemasukan dan pengeluaran">
+      <article class="summary-item income-summary">
+        <span>Pemasukan</span>
+        <strong>{{ formatCurrency(totalIncome) }}</strong>
+      </article>
+      <article class="summary-item expense-summary">
+        <span>Pengeluaran</span>
+        <strong>{{ formatCurrency(totalExpense) }}</strong>
+      </article>
     </section>
 
     <section class="transaction-form" aria-labelledby="form-title">
@@ -125,6 +164,38 @@ function addTransaction() {
       <p v-if="transactions.length" class="success-message">
         {{ transactions.length }} transaksi berhasil tersimpan sementara.
       </p>
+    </section>
+
+    <section class="transaction-history" aria-labelledby="history-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">RIWAYAT</p>
+          <h2 id="history-title">Transaksi terbaru</h2>
+        </div>
+        <span v-if="transactions.length" class="transaction-count">{{ transactions.length }}</span>
+      </div>
+
+      <p v-if="!transactions.length" class="empty-state">
+        Belum ada transaksi. Catat transaksi pertamamu di atas.
+      </p>
+      <ul v-else class="history-list">
+        <li v-for="transaction in transactions" :key="transaction.id" class="history-item">
+          <span
+            class="transaction-icon"
+            :class="transaction.type"
+            aria-hidden="true"
+          >
+            {{ transaction.type === 'income' ? '↗' : '↘' }}
+          </span>
+          <div class="transaction-details">
+            <strong>{{ transaction.description }}</strong>
+            <span>{{ transaction.category }} · {{ formatDate(transaction.date) }}</span>
+          </div>
+          <strong class="transaction-amount" :class="transaction.type">
+            {{ transaction.type === 'income' ? '+' : '−' }}{{ formatCurrency(transaction.amount) }}
+          </strong>
+        </li>
+      </ul>
     </section>
 
     <p class="encouragement">Yuk, mulai catat pemasukan dan pengeluaranmu.</p>
@@ -224,6 +295,41 @@ h1 {
   font-size: 0.88rem;
 }
 
+.summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.summary-item {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px solid #dce4d8;
+  border-radius: 1rem;
+  background: #fffdf8;
+}
+
+.summary-item span {
+  color: #65716a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.summary-item strong {
+  font-size: clamp(0.95rem, 4vw, 1.15rem);
+  letter-spacing: -0.03em;
+}
+
+.income-summary strong {
+  color: #28704c;
+}
+
+.expense-summary strong {
+  color: #b44d40;
+}
+
 .encouragement {
   margin: 1.5rem 0 0;
   color: #65716a;
@@ -312,5 +418,128 @@ button:hover {
   color: #2d6a46;
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.transaction-history {
+  margin-top: 2rem;
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.transaction-count {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #e5eee2;
+  color: #24563d;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.empty-state {
+  margin: 1rem 0 0;
+  padding: 1.25rem;
+  border: 1px dashed #cbd7c6;
+  border-radius: 1rem;
+  color: #65716a;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.history-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #dce4d8;
+  border-radius: 1rem;
+  background: #fffdf8;
+}
+
+.transaction-icon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.transaction-icon.income {
+  background: #e2f1e7;
+  color: #28704c;
+}
+
+.transaction-icon.expense {
+  background: #f8e7e3;
+  color: #b44d40;
+}
+
+.transaction-details {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.transaction-details strong,
+.transaction-amount {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-details span {
+  overflow: hidden;
+  color: #65716a;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-amount {
+  font-size: 0.9rem;
+}
+
+.transaction-amount.income {
+  color: #28704c;
+}
+
+.transaction-amount.expense {
+  color: #b44d40;
+}
+
+@media (max-width: 420px) {
+  .landing-page {
+    padding: 2.25rem 1rem;
+  }
+
+  .summary-item {
+    padding: 0.85rem;
+  }
+
+  .history-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .transaction-amount {
+    grid-column: 2;
+  }
 }
 </style>
